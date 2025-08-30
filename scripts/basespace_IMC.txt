@@ -1,0 +1,87 @@
+ ### Downloading data from BaseSpace
+ ##following directions from: https://developer.basespace.illumina.com/docs/content/documentation/cli/cli-examples
+ ## See also: https://developer.basespace.illumina.com/docs/content/documentation/cli/cli-overview
+ 
+## download basespace Linux
+#run on stampede2
+wget "https://launch.basespace.illumina.com/CLI/latest/amd64-linux/bs" -O $HOME/bin/bs
+
+#give access to run  
+chmod u+x $HOME/bin/bs
+
+#authenticate basespace if needed
+bs auth
+
+#check that basespace is connected 
+$HOME/bin/bs whoami
+
+#list projects
+$HOME/bin/bs list projects
+
+
+### downloading samples
+## save on stampede2
+# stampede:/work2/04315/imc/stampede2/A_burtoni_snseq
+#create directory in work
+mkdir A_burtoni_snseq
+cd A_burtoni_snseq
+
+#burtoni sample ID: 342249909 
+#download project
+bs download project -i 342249909 -o basespace
+
+##move all fastq files to new folder
+cd ..
+##make fastq folder
+mkdir fastq
+#copy all fastq files
+cp basespace/SA22049-Burtoni_dom_L001_ds.da4bc8788ac44d218316172f480c5fe7/*fastq.gz fastq/
+cp basespace/SA22049-Burtoni_dom_L002_ds.3b63aa7be1374b04a1af509330f07a47/*fastq.gz fastq/
+cp basespace/SA22049-Burtoni_sub_L001_ds.17cc4d64ec73478593b689b5267441a0/*fastq.gz fastq/
+cp basespace/SA22049-Burtoni_sub_L002_ds.63498b0ce8184f6489b2efe9550b223e/*fastq.gz fastq/
+cp basespace/JA* fastq/
+
+##go to fastq folder
+cd fastq/ 
+#unzip data [optional for fastqc]
+#gunzip *fastq.gz
+
+#run fastqc
+module load fastqc
+#fastqc ./*fastq.gz > fastqc.burtoni
+
+#slurm version
+echo "fastqc Burtoni-dom_S5_L001_R1_001.fastq.gz
+fastqc Burtoni-sub_S6_L001_R1_001.fastq.gz
+fastqc Burtoni-dom_S5_L001_R2_001.fastq.gz
+fastqc Burtoni-sub_S6_L001_R2_001.fastq.gz
+fastqc Burtoni-dom_S5_L002_R1_001.fastq.gz
+fastqc Burtoni-sub_S6_L002_R1_001.fastq.gz
+fastqc Burtoni-dom_S5_L002_R2_001.fastq.gz 
+fastqc Burtoni-sub_S6_L002_R2_001.fastq.gz" > fastqc.burtoni
+#setup slurm
+launcher_creator.py -j fastqc.burtoni -n fastqc.burtoni -t 2:00:00 -e imillercrews@utexas.edu -a NeuroEthoEvoDevo -q normal -N 1
+#run slurm
+sbatch fastqc.burtoni.slurm
+#~100 minutes
+
+###run multiqc
+##copy fastqc files over to lambcomp01
+scp *fastqc* imc@lambcomp01.ccbb.utexas.edu:/stor/work/Hofmann/All_projects/A_burtoni_snseq/seq_data/fastqc_files
+#install
+pip3 install multiqc
+#run multiqc
+multiqc .
+
+### copy 
+#copy files from stampede2 tp lambcomp01
+scp -r basespace/ imc@lambcomp01.ccbb.utexas.edu:/stor/work/Hofmann/All_projects/A_burtoni_snseq/seq_data/basespace/.
+
+
+
+
+
+
+
+
+

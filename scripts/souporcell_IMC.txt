@@ -1,0 +1,203 @@
+#### Souporcell pipeline 
+####A. burtoni single nuclei sequencing 
+#https://github.com/wheaton5/souporcell
+
+### make directory
+## stampede2
+cds
+mkdir souporcell
+cd souporcell
+mkdir dom
+mkdir sub
+
+#copy reference
+scp -r NileTilapia.reference imc@stampede2.tacc.utexas.edu:/scratch/04315/imc/
+
+## copy possorted_genome_bam and index file into folders from lambcomp01 folder
+#dom
+#imc@lambcomp01.ccbb.utexas.edu:/stor/work/Hofmann/All_projects/A_burtoni_snseq/cellranger/count/NileTilapia.reference/dom/Burtoni-dom/outs/possorted_genome_bam.bam
+cd dom
+# copy possorted_genome_bam into folders from lambcomp01 folder
+scp possorted_genome_bam.bam imc@stampede2.tacc.utexas.edu:/scratch/04315/imc/souporcell/dom
+scp possorted_genome_bam.bam.bai imc@stampede2.tacc.utexas.edu:/scratch/04315/imc/souporcell/dom
+#rename to add dom
+mv possorted_genome_bam.bam dom_possorted_genome_bam.bam
+mv possorted_genome_bam.bam.bai dom_possorted_genome_bam.bam.bai
+cd ..
+
+#sub
+#imc@lambcomp01.ccbb.utexas.edu:/stor/work/Hofmann/All_projects/A_burtoni_snseq/cellranger/count/NileTilapia.reference/sub/Burtoni-sub/outs/possorted_genome_bam.bam
+cd sub
+# copy possorted_genome_bam into folders from lambcomp01 folder
+scp possorted_genome_bam.bam imc@stampede2.tacc.utexas.edu:/scratch/04315/imc/souporcell/sub
+scp possorted_genome_bam.bam.bai imc@stampede2.tacc.utexas.edu:/scratch/04315/imc/souporcell/sub
+#rename to add sub
+mv possorted_genome_bam.bam sub_possorted_genome_bam.bam
+mv possorted_genome_bam.bam.bai sub_possorted_genome_bam.bam.bai
+cd ..
+
+
+## copy barcodes.tsv into folders from lambcomp01 folder
+#dom
+#imc@lambcomp01.ccbb.utexas.edu:/stor/work/Hofmann/All_projects/A_burtoni_snseq/cellranger/count/NileTilapia.reference/dom/Burtoni-dom/outs/filtered_feature_bc_matrix
+cd dom
+# copy barcodes.tsv.gz into folders from lambcomp01 folder
+scp barcodes.tsv.gz imc@stampede2.tacc.utexas.edu:/scratch/04315/imc/souporcell/dom
+#rename to add dom
+mv barcodes.tsv.gz dom_barcodes.tsv.gz
+gunzip dom_barcodes.tsv.gz
+cd ..
+
+#sub
+#imc@lambcomp01.ccbb.utexas.edu:/stor/work/Hofmann/All_projects/A_burtoni_snseq/cellranger/count/NileTilapia.reference/sub/Burtoni-sub/outs/filtered_feature_bc_matrix
+cd sub
+# copy barcodes.tsv.gz into folders from lambcomp01 folder
+scp barcodes.tsv.gz imc@stampede2.tacc.utexas.edu:/scratch/04315/imc/souporcell/sub
+#rename to add sub
+mv barcodes.tsv.gz sub_barcodes.tsv.gz
+gunzip sub_barcodes.tsv.gz
+cd ..
+
+# copy selected barcodes from \\lambstor01.ccbb.utexas.edu\HOFMANN\All_projects\A_burtoni_snseq\seurat
+# generated in seurat_snseq_burtoni_IMC
+# copy dom.burtoni.snseq.selected.barcodes.tsv and sub.burtoni.snseq.selected.barcodes.tsv
+
+###installation
+## download singularity image
+## need to run singularity on a compute node
+#check for singularity module
+module spider singularity
+# load module
+module load tacc-singularity/3.7.2
+# check version is >3.0
+singularity --version
+
+# download souporcell
+singularity pull shub://wheaton5/souporcell
+
+
+### run souporcell command
+## options used otherwise default
+#-i BAM, --bam BAM     cellranger bam
+#-b BARCODES, --barcodes BARCODES, barcodes.tsv from cellranger
+#-f FASTA, --fasta FASTA, reference fasta file
+#-t THREADS, --threads THREADS, max threads to use
+#-o OUT_DIR, --out_dir OUT_DIR, name of directory to place souporcell files
+#-k CLUSTERS, --clusters CLUSTERS, number cluster, tbd add easy way to run on a range of k
+
+#singularity exec /path/to/souporcell_latest.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f #/path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
+
+## run test on idev
+#test on idev and ran fine for 30 minutes
+# load module
+module load tacc-singularity/3.7.2
+
+#dom
+cd dom
+# run command
+echo 'singularity exec ../souporcell_latest.sif souporcell_pipeline.py -i dom_possorted_genome_bam.bam -b dom_barcodes.tsv -f /scratch/04315/imc/NileTilapia.reference/fasta/genome.fa -t 80 -o dom_soupercell -k 3' > dom.souporcell
+#setup slurm
+launcher_creator.py -j dom.souporcell -n dom.souporcell -t 16:00:00 -e imillercrews@utexas.edu -a NeuroEthoEvoDevo -q normal -N 1
+#run slurm
+sbatch dom.souporcell.slurm
+### ran out of time! 
+
+## check idev run?
+cp -r dom_soupercell dom_soupercell_test
+singularity exec ../souporcell_latest.sif souporcell_pipeline.py -i dom_possorted_genome_bam.bam -b dom_barcodes.tsv -f /scratch/04315/imc/NileTilapia.reference/fasta/genome.fa -t 80 -o dom_soupercell_test -k 3
+#restarting pipeline in existing directory
+
+## try running again 
+#increase thread count 94
+echo 'singularity exec ../souporcell_latest.sif souporcell_pipeline.py -i dom_possorted_genome_bam.bam -b dom_barcodes.tsv -f /scratch/04315/imc/NileTilapia.reference/fasta/genome.fa -t 94 -o dom_soupercell -k 3' > dom.souporcell.2
+#setup slurm
+launcher_creator.py -j dom.souporcell.2 -n dom.souporcell.2 -t 16:00:00 -e imillercrews@utexas.edu -a NeuroEthoEvoDevo -q normal -N 1
+#run slurm
+sbatch dom.souporcell.2.slurm
+# finished after ~9 hours
+# total of ~25 hours
+
+# copy results to lambcomp01 
+#run in lambcomp01 folder: imc@lambcomp01:/stor/work/Hofmann/All_projects/A_burtoni_snseq/souporcell
+scp -r imc@stampede2.tacc.utexas.edu:/scratch/04315/imc/souporcell/dom/dom_soupercell .
+
+#sub
+cd sub
+# run command
+echo 'singularity exec ../souporcell_latest.sif souporcell_pipeline.py -i sub_possorted_genome_bam.bam -b sub_barcodes.tsv -f /scratch/04315/imc/NileTilapia.reference/fasta/genome.fa -t 94 -o sub_soupercell -k 3' > sub.souporcell
+#setup slurm
+launcher_creator.py -j sub.souporcell -n sub.souporcell -t 24:00:00 -e imillercrews@utexas.edu -a NeuroEthoEvoDevo -q normal -N 1
+#run slurm
+sbatch sub.souporcell.slurm
+# finished ~11 hours
+# copy results to lambcomp01 
+#run in lambcomp01 folder: imc@lambcomp01:/stor/work/Hofmann/All_projects/A_burtoni_snseq/souporcell
+scp -r imc@stampede2.tacc.utexas.edu:/scratch/04315/imc/souporcell/sub/sub_soupercell .
+
+
+### run with select barcodes
+##dom
+echo 'singularity exec ../souporcell_latest.sif souporcell_pipeline.py -i dom_possorted_genome_bam.bam -b dom.burtoni.snseq.selected.barcodes.tsv -f /scratch/04315/imc/NileTilapia.reference/fasta/genome.fa -t 94 -o dom_soupercell_select -k 3' > dom.souporcell.select
+#tested with bash in idev session
+#setup slurm
+launcher_creator.py -j dom.souporcell.select -n dom.souporcell.select -t 16:00:00 -e imillercrews@utexas.edu -a NeuroEthoEvoDevo -q normal -N 1
+#run slurm
+sbatch dom.souporcell.select.slurm
+## ended in 9 hours
+# copy results to lambcomp01 
+#run in lambcomp01 folder: imc@lambcomp01:/stor/work/Hofmann/All_projects/A_burtoni_snseq/souporcell
+scp -r imc@stampede2.tacc.utexas.edu:/scratch/04315/imc/souporcell/dom/dom_soupercell_select .
+
+
+##sub
+echo 'singularity exec ../souporcell_latest.sif souporcell_pipeline.py -i sub_possorted_genome_bam.bam -b sub.burtoni.snseq.selected.barcodes.tsv -f /scratch/04315/imc/NileTilapia.reference/fasta/genome.fa -t 94 -o sub_soupercell_select -k 3' > sub.souporcell.select
+#tested with bash in idev session
+#setup slurm
+launcher_creator.py -j sub.souporcell.select -n sub.souporcell.select -t 10:00:00 -e imillercrews@utexas.edu -a NeuroEthoEvoDevo -q normal -N 1
+#run slurm
+sbatch sub.souporcell.select.slurm
+#got error:
+# "Less than 25% of first 100000 reads have cell barcodes from barcodes file, is this the correct barcode file? turn on --ignore True to ignore"
+
+#compare barcode files
+#need to sort files first
+#count number of non-overlapping barcodes
+comm -3 <(sort sub_barcodes.tsv) <(sort sub.burtoni.snseq.selected.barcodes.tsv) | wc -l
+#39683
+#which means no overlap since they are 24521 and 15392
+# check number of reads in bam file
+samtools view -c sub_possorted_genome_bam.bam
+
+#try again
+#test on idev first
+#set: --ignore True
+echo 'singularity exec ../souporcell_latest.sif souporcell_pipeline.py -i sub_possorted_genome_bam.bam -b sub.burtoni.snseq.selected.barcodes.tsv -f /scratch/04315/imc/NileTilapia.reference/fasta/genome.fa -t 94 -o sub_souporcell_select -k 3 --ignore True' > sub.souporcell.select.ignore
+#tested with bash in idev session
+#setup slurm
+launcher_creator.py -j sub.souporcell.select.ignore -n sub.souporcell.select.ignore -t 10:00:00 -e imillercrews@utexas.edu -a NeuroEthoEvoDevo -q normal -N 1
+#run slurm
+sbatch sub.souporcell.select.ignore.slurm
+# ran after 3 hours
+# copy results to lambcomp01 
+#run in lambcomp01 folder: imc@lambcomp01:/stor/work/Hofmann/All_projects/A_burtoni_snseq/souporcell
+scp -r imc@stampede2.tacc.utexas.edu:/scratch/04315/imc/souporcell/sub/sub_souporcell_select .
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,202 @@
+#### Cell ranger count pipeline 
+####A. burtoni single nuclei sequencing 
+
+###installation
+##install cell ranger: https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/using/tutorial_in
+## on stampede2 home
+#make directory yard
+mkdir yard
+cd yard
+#make directory apps
+mkdir apps
+cd apps
+
+##download cellranger
+#go to downloads page: https://support.10xgenomics.com/single-cell-gene-expression/software/downloads/latest
+curl -o cellranger-6.1.2.tar.gz "https://cf.10xgenomics.com/releases/cell-exp/cellranger-6.1.2.tar.gz?Expires=1647333298&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9jZi4xMHhnZW5vbWljcy5jb20vcmVsZWFzZXMvY2VsbC1leHAvY2VsbHJhbmdlci02LjEuMi50YXIuZ3oiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE2NDczMzMyOTh9fX1dfQ__&Signature=j~23dn2DHcU3~Pxlz3~XqzkmpFYyxDgmXAcVJO84S7rXuupfTXXbAVpLK~xWqpBFSB8NHRvLSej2vBg6T70UJxnHnwoNjxJBJNGZNHWvnUu~Vt0jCRYv0iGlHB8FxQwTkJEg3EWnSLpxL42RZMldU3Wp0eixLV3ygzhiKMKdz1oqHpGdZmmAHWzJoaZ~--skgW-w32tCRx49CTj8WgpgVACFb8wnf8LeBW1NC4fAo205fWWPlPKtVHc4Szgn7YMQuxnDgBw~OUKymY3r1mb~jhgS9jSgdQIJJrXX9ujbHt1KMsRe7WnbH6JOFPlWraTz2BL~ZDwIOy4QDvt5bNXmqQ__&Key-Pair-Id=APKAI7S6A5RYOXBWRPDA"
+
+#unpack tarball
+tar -xvf cellranger-6.1.2.tar.gz
+
+##add cellranger to path
+export PATH=/home1/04315/imc/yard/apps/cellranger-6.1.2:$PATH
+#add to 
+#check it worked
+which cellranger
+
+##site check 
+##run in scratch
+cds
+mkdir test.cellranger
+cd test.cellranger
+#site test
+cellranger sitecheck > sitecheck.txt
+#check results
+less sitecheck.txt
+
+##run test run
+#use dev node
+idev
+#run test
+cellranger testrun --id=check_install
+#took ~15 minutes
+#pipestance completed successfully!  
+
+### download transcriptomes
+cds
+mkdir ref
+cd ref
+
+## use tilapia transcriptome
+mkdir NileTilapia
+cd NileTilapia
+#annotation
+wget http://ftp.ensembl.org/pub/release-105/gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.105.gtf.gz
+#reference genome
+wget http://ftp.ensembl.org/pub/release-105/fasta/oreochromis_niloticus/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.toplevel.fa.gz
+
+#unzip
+idev
+gunzip *.gz
+
+#filter gtf
+cellranger mkgtf Oreochromis_niloticus.O_niloticus_UMD_NMBU.105.gtf Oreochromis_niloticus.O_niloticus_UMD_NMBU.105.filtered.gtf  --attribute=key:allowable_value
+#same number before and after
+#could use stricter attribute filters
+
+#make reference
+echo 'cellranger mkref --genome=NileTilapia --fasta=Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.toplevel.fa --genes=Oreochromis_niloticus.O_niloticus_UMD_NMBU.105.filtered.gtf' > tilapia.reference
+#setup slurm
+launcher_creator.py -j tilapia.reference -n tilapia.reference -t 16:00:00 -e imillercrews@utexas.edu -a NeuroEthoEvoDevo -q normal -N 1
+#run slurm
+sbatch tilapia.reference.slurm
+#~5 minutes
+#copy and renmae reference folder
+cp -r Tilapia.reference/ NileTilapia.reference/
+#copy to lambcomp01
+scp -r /scratch/04315/imc/ref/NileTilapia/NileTilapia.reference/ imc@lambcomp01.ccbb.utexas.edu:/stor/work/Hofmann/All_projects/A_burtoni_snseq/cellranger/ref
+
+
+## use burtoni new reference
+#https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-018-5321-6
+#use novel annotation and novel reference transcripts
+#"Time matters! Developmental shift in gene expression between the head and the trunk region of the cichlid fish Astatotilapia burtoni"
+#anotation
+cds
+cd ref
+mkdir burtoni
+cd burtoni
+#new names?
+wget https://static-content.springer.com/esm/art%3A10.1186%2Fs12864-018-5321-6/MediaObjects/12864_2018_5321_MOESM5_ESM.txt
+#new gtf
+wget https://static-content.springer.com/esm/art%3A10.1186%2Fs12864-018-5321-6/MediaObjects/12864_2018_5321_MOESM3_ESM.gtf
+#novel reference genome
+wget https://static-content.springer.com/esm/art%3A10.1186%2Fs12864-018-5321-6/MediaObjects/12864_2018_5321_MOESM4_ESM.fasta
+#reference genome
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/239/415/GCA_000239415.1_AstBur1.0/GCA_000239415.1_AstBur1.0_genomic.fna.gz
+gunzip *.gz
+
+#combine fasta files
+mv 12864_2018_5321_MOESM4_ESM.fasta  12864_2018_5321_MOESM4_ESM.fna
+cat *.fna > burtoni.concatenated.fasta
+
+#filter gtf
+idev
+cellranger mkgtf 12864_2018_5321_MOESM3_ESM.gtf 12864_2018_5321_MOESM3_ESM.filtered.gtf --attribute=key:allowable_value
+#doesn't deal with unstranded lines from '.' to '-' or '+'
+## don't filter and move forward with analysis
+
+#make reference
+echo 'cellranger mkref --genome=Aburtoni.reference --fasta=burtoni.concatenated.fasta --genes=12864_2018_5321_MOESM3_ESM.gtf' > burtoni.reference
+#setup slurm
+launcher_creator.py -j burtoni.reference -n burtoni.reference -t 00:10:00 -e imillercrews@utexas.edu -a NeuroEthoEvoDevo -q normal -N 1
+#run slurm
+sbatch burtoni.reference.slurm
+#something wrong with gtf file? 
+#"mkref has failed: error building reference package
+Error while parsing GTF file /scratch/04315/imc/ref/burtoni/12864_2018_5321_MOESM3_ESM.gtf
+Invalid contig name encountered on GTF line 3: NW_005179401.1. The FASTA file has contigs:"
+
+
+###cell ranger count
+###since already have fastq files can move onto cell ranger count: #https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/using/tutorial_ct
+#use:
+#--include-introns for nuclei data
+#--expect-cells=10000 to set target number of nuclei
+cds
+mkdir count
+cd count
+mkdir NileTilapia.reference
+cd NileTilapia.reference
+mkdir sub
+mkdir dom
+
+##Tilapia reference
+#sub
+cd sub
+#create cellranger count command
+#note: needs to be one line for slurm but can be multiple lines with '\' for bash
+echo 'cellranger count --id=Burtoni-sub --transcriptome=/scratch/04315/imc/ref/NileTilapia/NileTilapia.reference --fastqs=/work2/04315/imc/stampede2/A_burtoni_snseq/fastq --sample=Burtoni-sub --include-introns --expect-cells=10000' > sub.burtoni.NileTilapiareference.count
+#setup slurm
+launcher_creator.py -j sub.burtoni.NileTilapiareference.count -n sub.burtoni.NileTilapiareference.count -t 16:00:00 -e imillercrews@utexas.edu -a NeuroEthoEvoDevo -q normal -N 1
+#run slurm
+sbatch sub.burtoni.NileTilapiareference.count.slurm
+#~11 hours
+
+#dom
+cd ..
+cd dom
+#create cellranger count command
+#note: needs to be one line for slurm but can be multiple lines with '\' for bash
+echo 'cellranger count --id=Burtoni-dom --transcriptome=/scratch/04315/imc/ref/NileTilapia/NileTilapia.reference --fastqs=/work2/04315/imc/stampede2/A_burtoni_snseq/fastq --sample=Burtoni-dom --include-introns --expect-cells=10000' > dom.burtoni.NileTilapiareference.count
+#setup slurm
+launcher_creator.py -j dom.burtoni.NileTilapiareference.count -n dom.burtoni.NileTilapiareference.count -t 16:00:00 -e imillercrews@utexas.edu -a NeuroEthoEvoDevo -q normal -N 1
+#run slurm
+sbatch dom.burtoni.NileTilapiareference.count.slurm
+#~11 hours
+
+###reanalyze
+##force cells 10000
+
+
+##filtered
+##dom
+cds
+cd count
+cd NileTilapia.reference
+mkdir dom_reanalyze
+cd dom_reanalyze
+#create cellranger reanalyze command
+#note: needs to be one line for slurm but can be multiple lines with '\' for bash
+echo 'cellranger reanalyze --id=Burtoni-dom_force10k --matrix=/scratch/04315/imc/count/NileTilapia.reference/dom/Burtoni-dom/outs/filtered_feature_bc_matrix.h5 --force-cells=10000' > dom.burtoni.NileTilapiareference.10k.count
+#run 
+idev 
+bash dom.burtoni.NileTilapiareference.10k.count
+#took ~15 minutes
+
+##sub
+cds
+cd count
+cd NileTilapia.reference
+mkdir sub_reanalyze
+cd sub_reanalyze
+#create cellranger reanalyze command
+#note: needs to be one line for slurm but can be multiple lines with '\' for bash
+echo 'cellranger reanalyze --id=Burtoni-sub_force10k --matrix=/scratch/04315/imc/count/NileTilapia.reference/sub/Burtoni-sub/outs/filtered_feature_bc_matrix.h5 --force-cells=10000' > sub.burtoni.NileTilapiareference.10k.count
+#run 
+idev 
+bash sub.burtoni.NileTilapiareference.10k.count
+#took ~15 minutes
+
+##tried using raw matrix instead of filtered and saw no difference
+## copy to lambcomp01
+scp -r /scratch/04315/imc/count imc@lambcomp01.ccbb.utexas.edu:/stor/work/Hofmann/All_projects/A_burtoni_snseq/cellranger/count
+
+##once completed can move onto seurat: https://satijalab.org/seurat/articles/pbmc3k_tutorial.html
+
+
+
+
+
+
+
