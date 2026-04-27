@@ -28,8 +28,6 @@ souporcell_snseq_burtoni_IMC.R - genotyping data
 
 sctype_snseq_burtoni_IMC.R - cell type calling
 
-HypoMap_snseq_burtoni_IMC.R - comparison with HypoMap database
-
 ### DEG analysis
 AVP_DEG_snseq_burtoni_IMC.R - AVP clustering analysis and DEG
 
