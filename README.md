@@ -26,7 +26,7 @@ seurat_snseq_burtoni_IMC.R
 ### cell identification
 souporcell_snseq_burtoni_IMC.R - genotyping data
 
-sctype_snseq_burtoni_IMC.R - cell type calling
+sctype_snseq_burtoni_IMC.R - cell type calling [Fig. 1B, 1C]
 
 ### DEG analysis
 AVP_DEG_snseq_burtoni_IMC.R - AVP clustering analysis and DEG
